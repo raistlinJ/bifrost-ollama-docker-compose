@@ -1,4 +1,4 @@
-name: bifrost-ollama-proxy-win-caddy
+name: bifrost-ollama-proxy-win-letsencrypt
 
 services:
   postgres:
@@ -33,8 +33,10 @@ services:
       BIFROST_DB_TYPE: postgres
       BIFROST_DB_DSN: postgres://${POSTGRES_USER:-bifrost}:${POSTGRES_PASSWORD:-change-this-postgres-password}@postgres:5432/${POSTGRES_DB:-bifrost}?sslmode=disable
       OLLAMA_API_BASE: ${OLLAMA_API_BASE:-http://host.docker.internal:11434}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
-      - ../bifrost:/app/data
+      - ./bifrost:/app/data
     networks:
       - backend
     healthcheck:
@@ -50,12 +52,16 @@ services:
     depends_on:
       bifrost:
         condition: service_healthy
+    environment:
+      LETSENCRYPT_DOMAIN: ${LETSENCRYPT_DOMAIN}
+      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL}
     ports:
-      - "${HTTPS_PORT:-443}:443"
+      - "80:80"
+      - "443:443"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
+      - ./caddy/Caddyfile.letsencrypt:/etc/caddy/Caddyfile:ro
+      - ./certs/caddy-data:/data
+      - ./certs/caddy-config:/config
     networks:
       - backend
 
@@ -64,8 +70,4 @@ networks:
 
 volumes:
   postgres_data:
-    name: bifrost-ollama-proxy-win-postgres-data
-  caddy_data:
-    name: bifrost-ollama-proxy-win-caddy-data
-  caddy_config:
-    name: bifrost-ollama-proxy-win-caddy-config
+    name: bifrost-ollama-proxy-win-letsencrypt-postgres-data
