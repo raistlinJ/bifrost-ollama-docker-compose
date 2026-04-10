@@ -1,0 +1,71 @@
+name: bifrost-ollama-proxy-win-caddy
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-bifrost}
+      POSTGRES_USER: ${POSTGRES_USER:-bifrost}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-this-postgres-password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bifrost} -d ${POSTGRES_DB:-bifrost}"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  bifrost:
+    image: maximhq/bifrost:latest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_HOST: ${APP_HOST:-0.0.0.0}
+      APP_PORT: ${APP_PORT:-8080}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_STYLE: ${LOG_STYLE:-json}
+      BIFROST_DB_TYPE: postgres
+      BIFROST_DB_DSN: postgres://${POSTGRES_USER:-bifrost}:${POSTGRES_PASSWORD:-change-this-postgres-password}@postgres:5432/${POSTGRES_DB:-bifrost}?sslmode=disable
+      OLLAMA_API_BASE: ${OLLAMA_API_BASE:-http://host.docker.internal:11434}
+    volumes:
+      - ../bifrost:/app/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "/dev/null", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 20s
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      bifrost:
+        condition: service_healthy
+    ports:
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - backend
+
+networks:
+  backend:
+
+volumes:
+  postgres_data:
+    name: bifrost-ollama-proxy-win-postgres-data
+  caddy_data:
+    name: bifrost-ollama-proxy-win-caddy-data
+  caddy_config:
+    name: bifrost-ollama-proxy-win-caddy-config

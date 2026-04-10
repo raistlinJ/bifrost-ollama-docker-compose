@@ -1,0 +1,4 @@
+.env
+certs/
+bifrost/
+.DS_Store

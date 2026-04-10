@@ -1,0 +1,16 @@
+{
+  admin off
+}
+
+https://localhost, https://127.0.0.1 {
+  tls internal
+  encode zstd gzip
+
+  header {
+    X-Content-Type-Options nosniff
+    X-Frame-Options DENY
+    Referrer-Policy no-referrer
+  }
+
+  reverse_proxy bifrost:8080
+}
